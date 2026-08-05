@@ -15,9 +15,33 @@ const generateToken = (id) => {
 const generateReferralCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
+const dropLegacyIdIndex = async () => {
+    try {
+        await User_1.default.collection.dropIndex('id_1');
+        console.log('Dropped legacy users.id_1 index');
+    }
+    catch (error) {
+        if (error?.codeName !== 'IndexNotFound' && error?.code !== 27) {
+            throw error;
+        }
+    }
+};
+const createUser = async (userData) => {
+    try {
+        return await User_1.default.create(userData);
+    }
+    catch (error) {
+        if (error?.code === 11000 && error?.keyPattern?.id) {
+            await dropLegacyIdIndex();
+            return User_1.default.create(userData);
+        }
+        throw error;
+    }
+};
 const signup = async (req, res) => {
     const { fullName, email, password, referralCode } = req.body;
     try {
+        await dropLegacyIdIndex();
         const userExists = await User_1.default.findOne({ email });
         if (userExists) {
             res.status(400).json({ message: 'User already exists' });
@@ -32,7 +56,7 @@ const signup = async (req, res) => {
                 referredBy = referrer.referralCode;
             }
         }
-        const user = await User_1.default.create({
+        const user = await createUser({
             fullName,
             email,
             passwordHash,
@@ -48,7 +72,11 @@ const signup = async (req, res) => {
         });
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        if (error?.code === 11000) {
+            res.status(400).json({ message: 'User already exists' });
+            return;
+        }
+        res.status(500).json({ message: 'Unable to create account. Please try again.' });
     }
 };
 exports.signup = signup;
