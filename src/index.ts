@@ -18,8 +18,16 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Connect to Database
-connectDB();
+// Ensure DB is connected before handling any request (required for Vercel serverless)
+app.use(async (_req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error: any) {
+    console.error('Database connection failed:', error.message);
+    res.status(503).json({ message: 'Database connection failed. Please try again.' });
+  }
+});
 
 // Routes
 app.use('/api', authRoutes);
