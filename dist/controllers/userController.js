@@ -8,6 +8,25 @@ const User_1 = __importDefault(require("../models/User"));
 const InvestmentLevel_1 = __importDefault(require("../models/InvestmentLevel"));
 const UserLevel_1 = __importDefault(require("../models/UserLevel"));
 const Transaction_1 = __importDefault(require("../models/Transaction"));
+const TEAM_ROLES = [
+    { title: 'Leader', salary: 100, requiredMembers: 20, requiredDeposits: 10000 },
+    { title: 'Manager', salary: 300, requiredMembers: 50, requiredDeposits: 350000 },
+    { title: 'Senior Manager', salary: 500, requiredMembers: 80, requiredDeposits: 70000 },
+    { title: 'Director', salary: 1000, requiredMembers: 150, requiredDeposits: 150000 },
+];
+const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
+const getReferralCommissionRate = (depositAmount) => {
+    if (depositAmount >= 1000) {
+        return 5;
+    }
+    if (depositAmount >= 200) {
+        return 3.5;
+    }
+    if (depositAmount >= 10) {
+        return 2;
+    }
+    return 0;
+};
 const getDashboard = async (req, res) => {
     try {
         const user = await User_1.default.findById(req.user.id).select('-passwordHash');
@@ -18,6 +37,11 @@ const getDashboard = async (req, res) => {
         // Get Active Level
         const activeLevelRecord = await UserLevel_1.default.findOne({ user: user._id, status: 'active' }).populate('level');
         const allLevels = await InvestmentLevel_1.default.find().sort({ levelNumber: 1 });
+        const teamMembers = await User_1.default.find({ referredBy: user.referralCode }).select('totalDeposited');
+        const availableTeamCommission = teamMembers.reduce((total, member) => {
+            const rate = getReferralCommissionRate(member.totalDeposited || 0);
+            return total + ((member.totalDeposited || 0) * (rate / 100));
+        }, 0);
         // Calculate today's commissions (Simplified)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -50,7 +74,9 @@ const getDashboard = async (req, res) => {
                 totalWithdrawn: user.totalWithdrawn,
                 todayDailyCommission: todayDailyCommissions.length > 0 ? todayDailyCommissions[0].total : 0,
                 todayTeamCommission: todayTeamCommissions.length > 0 ? todayTeamCommissions[0].total : 0,
-                totalTeamCommission: user.referralBonus,
+                totalTeamCommission: availableTeamCommission,
+                dailyCommissionPercent: DAILY_DEPOSIT_COMMISSION_PERCENT,
+                estimatedDailyCommission: user.totalDeposited * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100),
             },
             activeLevel: activeLevelRecord ? activeLevelRecord.level : null,
             levels: allLevels,
@@ -78,6 +104,20 @@ const getTeamStats = async (req, res) => {
             teamWithdrawals += member.totalWithdrawn;
             teamBalance += member.balance;
         });
+        const roles = TEAM_ROLES.map(role => {
+            const memberProgress = Math.min(teamMembers.length / role.requiredMembers, 1);
+            const depositProgress = Math.min(teamDeposits / role.requiredDeposits, 1);
+            const progress = Math.min(memberProgress, depositProgress);
+            return {
+                ...role,
+                currentMembers: teamMembers.length,
+                currentDeposits: teamDeposits,
+                remainingMembers: Math.max(role.requiredMembers - teamMembers.length, 0),
+                remainingDeposits: Math.max(role.requiredDeposits - teamDeposits, 0),
+                progress,
+                achieved: progress >= 1,
+            };
+        });
         res.json({
             referralCode: user.referralCode,
             referralLink: `https://rivochain.com/signup?ref=${user.referralCode}`, // Example link
@@ -87,6 +127,7 @@ const getTeamStats = async (req, res) => {
                 teamWithdrawals,
                 teamBalance,
             },
+            roles,
             members: teamMembers,
         });
     }

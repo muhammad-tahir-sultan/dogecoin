@@ -7,6 +7,39 @@ interface AuthRequest extends Request {
   user?: any;
 }
 
+const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
+
+const getReferralCommissionRate = (depositAmount: number): number => {
+  if (depositAmount >= 1000) {
+    return 5;
+  }
+
+  if (depositAmount >= 200) {
+    return 3.5;
+  }
+
+  if (depositAmount >= 10) {
+    return 2;
+  }
+
+  return 0;
+};
+
+const getApprovedDepositTotal = async (userId: any): Promise<number> => {
+  const approvedDeposits = await Transaction.aggregate([
+    {
+      $match: {
+        user: userId,
+        type: 'deposit',
+        status: 'approved',
+      },
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } },
+  ]);
+
+  return approvedDeposits.length > 0 ? approvedDeposits[0].total : 0;
+};
+
 export const getDepositAddress = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const config = await Config.findOne();
@@ -104,8 +137,15 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
       }
       
       const level: any = activeLevelRecord.level;
-      // In a real app, calculate exact amount based on deposit. For now, use minDeposit * percentage
-      const commissionAmount = level.minDeposit * (level.dailyCommissionPercent / 100);
+      const approvedDepositTotal = await getApprovedDepositTotal(user._id);
+      const commissionBase = approvedDepositTotal || user.totalDeposited;
+
+      if (commissionBase <= 0) {
+        res.status(400).json({ message: 'No approved deposit found for daily commission' });
+        return;
+      }
+
+      const commissionAmount = commissionBase * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100);
 
       // Check if already claimed today
       const today = new Date();
@@ -135,15 +175,32 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
 
       res.status(200).json(transaction);
     } else if (type === 'referral') {
-      // Simplified: Just an example logic for referral claim
-      const commissionAmount = user.referralBonus; // assuming accumulated bonus
+      const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
+      const commissionAmount = teamMembers.reduce((total, member: any) => {
+        const rate = getReferralCommissionRate(member.totalDeposited || 0);
+        return total + ((member.totalDeposited || 0) * (rate / 100));
+      }, 0);
+
       if (commissionAmount <= 0) {
         res.status(400).json({ message: 'No referral commission to claim' });
         return;
       }
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const existingClaim = await Transaction.findOne({
+        user: user._id,
+        type: 'referral_commission',
+        createdAt: { $gte: today },
+      });
+
+      if (existingClaim) {
+        res.status(400).json({ message: 'Referral commission already claimed today' });
+        return;
+      }
+
       user.balance += commissionAmount;
-      user.referralBonus = 0; // reset after claim
       await user.save();
 
       const transaction = await Transaction.create({
