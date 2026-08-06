@@ -40,7 +40,7 @@ app.use('/api/admin', adminRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
-  res.send('RivoChain Mobile Backend API');
+  res.send('Dogecoin Mobile Backend API');
 });
 
 // Start Server only if not in Vercel environment
