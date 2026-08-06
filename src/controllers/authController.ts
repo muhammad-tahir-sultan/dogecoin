@@ -79,6 +79,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
+      role: user.role,
       referralCode: user.referralCode,
       token: generateToken(user._id.toString()),
     });
@@ -103,6 +104,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         _id: user._id,
         fullName: user.fullName,
         email: user.email,
+        role: user.role,
         referralCode: user.referralCode,
         token: generateToken(user._id.toString()),
       });

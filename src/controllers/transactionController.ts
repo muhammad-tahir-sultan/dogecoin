@@ -2,12 +2,9 @@ import { Request, Response } from 'express';
 import Transaction from '../models/Transaction';
 import Config from '../models/Config';
 import User from '../models/User';
-import UserLevel from '../models/UserLevel';
 interface AuthRequest extends Request {
   user?: any;
 }
-
-const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
 
 const getReferralCommissionRate = (depositAmount: number): number => {
   if (depositAmount >= 1000) {
@@ -130,22 +127,16 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
     }
 
     if (type === 'daily') {
-      const activeLevelRecord = await UserLevel.findOne({ user: user._id, status: 'active' }).populate('level');
-      if (!activeLevelRecord) {
-        res.status(400).json({ message: 'No active investment level' });
-        return;
-      }
-      
-      const level: any = activeLevelRecord.level;
       const approvedDepositTotal = await getApprovedDepositTotal(user._id);
       const commissionBase = approvedDepositTotal || user.totalDeposited;
+      const commissionRate = getReferralCommissionRate(commissionBase);
 
-      if (commissionBase <= 0) {
-        res.status(400).json({ message: 'No approved deposit found for daily commission' });
+      if (commissionRate <= 0) {
+        res.status(400).json({ message: 'Deposit at least $10 to unlock daily commission' });
         return;
       }
 
-      const commissionAmount = commissionBase * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100);
+      const commissionAmount = commissionBase * (commissionRate / 100);
 
       // Check if already claimed today
       const today = new Date();
@@ -170,7 +161,6 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
         type: 'daily_commission',
         amount: commissionAmount,
         status: 'completed',
-        referenceLevel: level._id,
       });
 
       res.status(200).json(transaction);

@@ -11,8 +11,6 @@ const TEAM_ROLES = [
   { title: 'Director', salary: 1000, requiredMembers: 150, requiredDeposits: 150000 },
 ];
 
-const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
-
 const getReferralCommissionRate = (depositAmount: number): number => {
   if (depositAmount >= 1000) {
     return 5;
@@ -42,7 +40,6 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Get Active Level
     const activeLevelRecord = await UserLevel.findOne({ user: user._id, status: 'active' }).populate('level');
     const allLevels = await InvestmentLevel.find().sort({ levelNumber: 1 });
     const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
@@ -50,6 +47,7 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
       const rate = getReferralCommissionRate(member.totalDeposited || 0);
       return total + ((member.totalDeposited || 0) * (rate / 100));
     }, 0);
+    const dailyCommissionPercent = getReferralCommissionRate(user.totalDeposited || 0);
 
     // Calculate today's commissions (Simplified)
     const today = new Date();
@@ -87,8 +85,8 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
         todayDailyCommission: todayDailyCommissions.length > 0 ? todayDailyCommissions[0].total : 0,
         todayTeamCommission: todayTeamCommissions.length > 0 ? todayTeamCommissions[0].total : 0,
         totalTeamCommission: availableTeamCommission,
-        dailyCommissionPercent: DAILY_DEPOSIT_COMMISSION_PERCENT,
-        estimatedDailyCommission: user.totalDeposited * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100),
+        dailyCommissionPercent,
+        estimatedDailyCommission: user.totalDeposited * (dailyCommissionPercent / 100),
       },
       activeLevel: activeLevelRecord ? activeLevelRecord.level : null,
       levels: allLevels,

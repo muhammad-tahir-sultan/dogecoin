@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import User from '../models/User';
 
 interface AuthRequest extends Request {
   user?: string | jwt.JwtPayload;
@@ -21,5 +22,21 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
 
   if (!token) {
     res.status(401).json({ message: 'Not authorized, no token' });
+  }
+};
+
+export const adminOnly = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = typeof req.user === 'object' ? req.user.id : undefined;
+    const user = userId ? await User.findById(userId) : null;
+
+    if (!user || user.role !== 'admin') {
+      res.status(403).json({ message: 'Admin access required' });
+      return;
+    }
+
+    next();
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Admin check failed' });
   }
 };
