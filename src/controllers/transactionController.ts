@@ -8,15 +8,15 @@ interface AuthRequest extends Request {
 
 const getReferralCommissionRate = (depositAmount: number): number => {
   if (depositAmount >= 1000) {
-    return 5;
+    return 0.5;
   }
 
   if (depositAmount >= 200) {
-    return 3.5;
+    return 0.5;
   }
 
   if (depositAmount >= 10) {
-    return 2;
+    return 0.5;
   }
 
   return 0;
