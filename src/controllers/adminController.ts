@@ -7,21 +7,38 @@ import User from '../models/User';
 export const getAdminStats = async (_req: Request, res: Response): Promise<void> => {
   try {
     const [users, transactions, supportTickets] = await Promise.all([
-      User.find().select('balance totalDeposited totalWithdrawn role'),
-      Transaction.find().select('amount type status'),
+      User.find().select('balance totalDeposited totalWithdrawn totalCommission totalReferralBonus role transactions'),
+      Transaction.find().select('amount type status createdAt'),
       SupportTicket.find().select('status'),
     ]);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayDeposits = transactions.filter(tx => tx.type === 'deposit' && tx.status === 'completed' && tx.createdAt >= today);
+    const todayWithdrawals = transactions.filter(tx => tx.type === 'withdrawal' && tx.status === 'completed' && tx.createdAt >= today);
+    const todayCommissions = transactions.filter(tx => tx.type === 'daily_commission' && tx.status === 'completed' && tx.createdAt >= today);
+    const todayReferralCommissions = transactions.filter(tx => tx.type === 'referral_commission' && tx.status === 'completed' && tx.createdAt >= today);
+    const pendingDeposits = transactions.filter(tx => tx.type === 'deposit' && tx.status === 'pending');
+    const pendingWithdrawals = transactions.filter(tx => tx.type === 'withdrawal' && tx.status === 'pending');
+
     res.json({
-      totalUsers: users.length,
-      adminUsers: users.filter((user) => user.role === 'admin').length,
+      totalUsersCount: users.length,
+      totalAdminsCount: users.filter(user => user.role === 'admin').length,
       totalBalance: users.reduce((total, user: any) => total + (user.balance || 0), 0),
       totalDeposited: users.reduce((total, user: any) => total + (user.totalDeposited || 0), 0),
       totalWithdrawn: users.reduce((total, user: any) => total + (user.totalWithdrawn || 0), 0),
-      pendingTransactions: transactions.filter((tx) => tx.status === 'pending').length,
-      pendingDeposits: transactions.filter((tx) => tx.type === 'deposit' && tx.status === 'pending').length,
-      pendingWithdrawals: transactions.filter((tx) => tx.type === 'withdrawal' && tx.status === 'pending').length,
-      openTickets: supportTickets.filter((ticket) => ticket.status === 'open').length,
+      totalCommission: users.reduce((total, user: any) => total + (user.totalCommission || 0), 0),
+      totalReferralBonus: users.reduce((total, user: any) => total + (user.totalReferralBonus || 0), 0),
+      todayDeposited: todayDeposits.reduce((sum, tx) => sum + tx.amount, 0),
+      todayWithdrawn: todayWithdrawals.reduce((sum, tx) => sum + tx.amount, 0),
+      todayCommission: todayCommissions.reduce((sum, tx) => sum + tx.amount, 0),
+      todayReferralBonus: todayReferralCommissions.reduce((sum, tx) => sum + tx.amount, 0),
+      pendingDepositsCount: pendingDeposits.length,
+      pendingWithdrawalsCount: pendingWithdrawals.length,
+      pendingDepositsAmount: pendingDeposits.reduce((sum, tx) => sum + tx.amount, 0),
+      pendingWithdrawalsAmount: pendingWithdrawals.reduce((sum, tx) => sum + tx.amount, 0),
+      openTickets: supportTickets.filter(ticket => ticket.status === 'open').length,
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

@@ -7,7 +7,7 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.post('/', protect, upload.single('image'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', protect, upload.single('file'), async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
       res.status(400).json({ message: 'No image provided' });
@@ -23,7 +23,7 @@ router.post('/', protect, upload.single('image'), async (req: Request, res: Resp
     });
 
     res.json({
-      url: result.secure_url,
+      secureUrl: result.secure_url,
       public_id: result.public_id,
     });
   } catch (error: any) {
