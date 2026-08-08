@@ -8,15 +8,15 @@ interface AuthRequest extends Request {
 
 const getReferralCommissionRate = (depositAmount: number): number => {
   if (depositAmount >= 1000) {
-    return 0.5;
+    return 5;
   }
 
   if (depositAmount >= 200) {
-    return 0.5;
+    return 3.5;
   }
 
   if (depositAmount >= 10) {
-    return 0.5;
+    return 2;
   }
 
   return 0;
@@ -167,8 +167,7 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
     } else if (type === 'referral') {
       const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
       const commissionAmount = teamMembers.reduce((total, member: any) => {
-        const rate = getReferralCommissionRate(member.totalDeposited || 0);
-        return total + ((member.totalDeposited || 0) * (rate / 100));
+        return total + ((member.totalDeposited || 0) * (0.5 / 100));
       }, 0);
 
       if (commissionAmount <= 0) {

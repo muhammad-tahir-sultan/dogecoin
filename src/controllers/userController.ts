@@ -13,15 +13,15 @@ const TEAM_ROLES = [
 
 const getReferralCommissionRate = (depositAmount: number): number => {
   if (depositAmount >= 1000) {
-    return 0.5;
+    return 5;
   }
 
   if (depositAmount >= 200) {
-    return 0.5;
+    return 3.5;
   }
 
   if (depositAmount >= 10) {
-    return 0.5;
+    return 2;
   }
 
   return 0;
@@ -44,8 +44,7 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
     const allLevels = await InvestmentLevel.find().sort({ levelNumber: 1 });
     const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
     const availableTeamCommission = teamMembers.reduce((total, member: any) => {
-      const rate = getReferralCommissionRate(member.totalDeposited || 0);
-      return total + ((member.totalDeposited || 0) * (rate / 100));
+      return total + ((member.totalDeposited || 0) * (0.5 / 100));
     }, 0);
     const dailyCommissionPercent = getReferralCommissionRate(user.totalDeposited || 0);
 
