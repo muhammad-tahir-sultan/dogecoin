@@ -134,7 +134,7 @@ export const getTeamStats = async (req: AuthRequest, res: Response): Promise<voi
 
     res.json({
       referralCode: user.referralCode,
-      referralLink: `https://doge-coin2.vercel.app/signup?ref=${user.referralCode}`,
+      referralLink: `https://dogee-coin.vercel.app/signup?ref=${user.referralCode}`,
       stats: {
         totalMembers: teamMembers.length,
         teamDeposits,
