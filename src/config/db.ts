@@ -9,10 +9,11 @@ declare global {
 }
 
 const getMongoUri = (): string => {
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  let uri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!uri) {
     throw new Error('MongoDB URI is not configured. Set MONGODB_URI or MONGO_URI.');
   }
+  uri = uri.trim().replace(/^MONGODB_URI=/, '').replace(/^['"]|['"]$/g, '');
   return uri;
 };
 
@@ -27,11 +28,19 @@ const connectDB = async (): Promise<typeof mongoose> => {
 
   if (!global.mongooseCache.promise) {
     const uri = getMongoUri();
-    global.mongooseCache.promise = mongoose.connect(uri, {
-      bufferCommands: false,
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
-    });
+    global.mongooseCache.promise = mongoose
+      .connect(uri, {
+        bufferCommands: false,
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 5000,
+      })
+      .then((mongooseInstance) => {
+        return mongooseInstance;
+      })
+      .catch((err) => {
+        global.mongooseCache!.promise = null;
+        throw err;
+      });
   }
 
   try {

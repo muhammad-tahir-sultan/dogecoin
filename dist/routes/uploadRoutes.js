@@ -10,7 +10,7 @@ const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
 const storage = multer_1.default.memoryStorage();
 const upload = (0, multer_1.default)({ storage });
-router.post('/', auth_1.protect, upload.single('image'), async (req, res) => {
+router.post('/', auth_1.protect, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             res.status(400).json({ message: 'No image provided' });
@@ -23,7 +23,7 @@ router.post('/', auth_1.protect, upload.single('image'), async (req, res) => {
             folder: 'rivochain/deposits',
         });
         res.json({
-            url: result.secure_url,
+            secureUrl: result.secure_url,
             public_id: result.public_id,
         });
     }

@@ -14,7 +14,6 @@ const TEAM_ROLES = [
     { title: 'Senior Manager', salary: 500, requiredMembers: 80, requiredDeposits: 70000 },
     { title: 'Director', salary: 1000, requiredMembers: 150, requiredDeposits: 150000 },
 ];
-const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
 const getReferralCommissionRate = (depositAmount) => {
     if (depositAmount >= 1000) {
         return 5;
@@ -34,14 +33,13 @@ const getDashboard = async (req, res) => {
             res.status(404).json({ message: 'User not found' });
             return;
         }
-        // Get Active Level
         const activeLevelRecord = await UserLevel_1.default.findOne({ user: user._id, status: 'active' }).populate('level');
         const allLevels = await InvestmentLevel_1.default.find().sort({ levelNumber: 1 });
         const teamMembers = await User_1.default.find({ referredBy: user.referralCode }).select('totalDeposited');
         const availableTeamCommission = teamMembers.reduce((total, member) => {
-            const rate = getReferralCommissionRate(member.totalDeposited || 0);
-            return total + ((member.totalDeposited || 0) * (rate / 100));
+            return total + ((member.totalDeposited || 0) * (0.5 / 100));
         }, 0);
+        const dailyCommissionPercent = getReferralCommissionRate(user.totalDeposited || 0);
         // Calculate today's commissions (Simplified)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -75,8 +73,8 @@ const getDashboard = async (req, res) => {
                 todayDailyCommission: todayDailyCommissions.length > 0 ? todayDailyCommissions[0].total : 0,
                 todayTeamCommission: todayTeamCommissions.length > 0 ? todayTeamCommissions[0].total : 0,
                 totalTeamCommission: availableTeamCommission,
-                dailyCommissionPercent: DAILY_DEPOSIT_COMMISSION_PERCENT,
-                estimatedDailyCommission: user.totalDeposited * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100),
+                dailyCommissionPercent,
+                estimatedDailyCommission: user.totalDeposited * (dailyCommissionPercent / 100),
             },
             activeLevel: activeLevelRecord ? activeLevelRecord.level : null,
             levels: allLevels,
@@ -120,7 +118,7 @@ const getTeamStats = async (req, res) => {
         });
         res.json({
             referralCode: user.referralCode,
-            referralLink: `https://rivochain.com/signup?ref=${user.referralCode}`, // Example link
+            referralLink: `https://dogee-coin.vercel.app/signup?ref=${user.referralCode}`,
             stats: {
                 totalMembers: teamMembers.length,
                 teamDeposits,
