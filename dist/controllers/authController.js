@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.login = exports.signup = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const crypto_1 = require("crypto");
 const User_1 = __importDefault(require("../models/User"));
 const generateToken = (id) => {
     return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -38,6 +39,23 @@ const createUser = async (userData) => {
         throw error;
     }
 };
+function verifyLegacySha256Password(password, storedHash) {
+    const saltLength = 32;
+    if (!storedHash || storedHash.length !== 64 || storedHash.slice(0, saltLength).trim() === storedHash.slice(0, saltLength)) {
+        return false;
+    }
+    const salt = storedHash.slice(0, saltLength);
+    const digest = (0, crypto_1.createHash)('sha256').update(`${salt}${password}`).digest('hex');
+    return digest === storedHash.slice(saltLength);
+}
+function isLikelyBcryptHash(hash) {
+    return hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$');
+}
+async function upgradePasswordHash(user, password) {
+    const newHash = await bcryptjs_1.default.hash(password, 10);
+    user.passwordHash = newHash;
+    await user.save();
+}
 const signup = async (req, res) => {
     const { fullName, email, password, referralCode } = req.body;
     try {
@@ -67,6 +85,7 @@ const signup = async (req, res) => {
             _id: user._id,
             fullName: user.fullName,
             email: user.email,
+            role: user.role,
             referralCode: user.referralCode,
             token: generateToken(user._id.toString()),
         });
@@ -84,11 +103,27 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     try {
         const user = await User_1.default.findOne({ email });
-        if (user && (await bcryptjs_1.default.compare(password, user.passwordHash))) {
+        if (!user) {
+            res.status(401).json({ message: 'Invalid email or password' });
+            return;
+        }
+        let passwordValid = false;
+        const storedHash = user.passwordHash;
+        if (isLikelyBcryptHash(storedHash)) {
+            passwordValid = await bcryptjs_1.default.compare(password, storedHash);
+        }
+        else {
+            passwordValid = verifyLegacySha256Password(password, storedHash);
+            if (passwordValid) {
+                await upgradePasswordHash(user, password);
+            }
+        }
+        if (passwordValid) {
             res.json({
                 _id: user._id,
                 fullName: user.fullName,
                 email: user.email,
+                role: user.role,
                 referralCode: user.referralCode,
                 token: generateToken(user._id.toString()),
             });

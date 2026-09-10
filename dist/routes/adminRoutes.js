@@ -1,0 +1,20 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const adminController_1 = require("../controllers/adminController");
+const auth_1 = require("../middleware/auth");
+const router = express_1.default.Router();
+router.use(auth_1.protect, auth_1.adminOnly);
+router.get('/stats', adminController_1.getAdminStats);
+router.get('/users', adminController_1.getAdminUsers);
+router.patch('/users/:userId', adminController_1.updateAdminUser);
+router.get('/transactions', adminController_1.getAdminTransactions);
+router.patch('/transactions/:transactionId', adminController_1.updateAdminTransaction);
+router.get('/support', adminController_1.getAdminSupportTickets);
+router.patch('/support/:ticketId', adminController_1.updateAdminSupportTicket);
+router.get('/config', adminController_1.getAdminConfig);
+router.patch('/config', adminController_1.updateAdminConfig);
+exports.default = router;

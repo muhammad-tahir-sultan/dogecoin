@@ -7,8 +7,6 @@ exports.getTransactionHistory = exports.claimCommission = exports.requestWithdra
 const Transaction_1 = __importDefault(require("../models/Transaction"));
 const Config_1 = __importDefault(require("../models/Config"));
 const User_1 = __importDefault(require("../models/User"));
-const UserLevel_1 = __importDefault(require("../models/UserLevel"));
-const DAILY_DEPOSIT_COMMISSION_PERCENT = 5;
 const getReferralCommissionRate = (depositAmount) => {
     if (depositAmount >= 1000) {
         return 5;
@@ -115,19 +113,14 @@ const claimCommission = async (req, res) => {
             return;
         }
         if (type === 'daily') {
-            const activeLevelRecord = await UserLevel_1.default.findOne({ user: user._id, status: 'active' }).populate('level');
-            if (!activeLevelRecord) {
-                res.status(400).json({ message: 'No active investment level' });
-                return;
-            }
-            const level = activeLevelRecord.level;
             const approvedDepositTotal = await getApprovedDepositTotal(user._id);
             const commissionBase = approvedDepositTotal || user.totalDeposited;
-            if (commissionBase <= 0) {
-                res.status(400).json({ message: 'No approved deposit found for daily commission' });
+            const commissionRate = getReferralCommissionRate(commissionBase);
+            if (commissionRate <= 0) {
+                res.status(400).json({ message: 'Deposit at least $10 to unlock daily commission' });
                 return;
             }
-            const commissionAmount = commissionBase * (DAILY_DEPOSIT_COMMISSION_PERCENT / 100);
+            const commissionAmount = commissionBase * (commissionRate / 100);
             // Check if already claimed today
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -147,15 +140,13 @@ const claimCommission = async (req, res) => {
                 type: 'daily_commission',
                 amount: commissionAmount,
                 status: 'completed',
-                referenceLevel: level._id,
             });
             res.status(200).json(transaction);
         }
         else if (type === 'referral') {
             const teamMembers = await User_1.default.find({ referredBy: user.referralCode }).select('totalDeposited');
             const commissionAmount = teamMembers.reduce((total, member) => {
-                const rate = getReferralCommissionRate(member.totalDeposited || 0);
-                return total + ((member.totalDeposited || 0) * (rate / 100));
+                return total + ((member.totalDeposited || 0) * (0.5 / 100));
             }, 0);
             if (commissionAmount <= 0) {
                 res.status(400).json({ message: 'No referral commission to claim' });

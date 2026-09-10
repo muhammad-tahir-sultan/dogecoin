@@ -5,10 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importDefault(require("mongoose"));
 const getMongoUri = () => {
-    const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    let uri = process.env.MONGODB_URI || process.env.MONGO_URI;
     if (!uri) {
         throw new Error('MongoDB URI is not configured. Set MONGODB_URI or MONGO_URI.');
     }
+    uri = uri.trim().replace(/^MONGODB_URI=/, '').replace(/^['"]|['"]$/g, '');
     return uri;
 };
 const connectDB = async () => {
@@ -20,10 +21,18 @@ const connectDB = async () => {
     }
     if (!global.mongooseCache.promise) {
         const uri = getMongoUri();
-        global.mongooseCache.promise = mongoose_1.default.connect(uri, {
+        global.mongooseCache.promise = mongoose_1.default
+            .connect(uri, {
             bufferCommands: false,
             maxPoolSize: 10,
-            serverSelectionTimeoutMS: 10000,
+            serverSelectionTimeoutMS: 5000,
+        })
+            .then((mongooseInstance) => {
+            return mongooseInstance;
+        })
+            .catch((err) => {
+            global.mongooseCache.promise = null;
+            throw err;
         });
     }
     try {
