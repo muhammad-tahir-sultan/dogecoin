@@ -79,7 +79,8 @@ export const submitDeposit = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 export const requestWithdrawal = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { amount, walletAddress } = req.body;
+  const amount = Number(req.body.amount);
+  const walletAddress = (req.body.walletAddress || req.body.withdrawAddress || '').toString().trim();
   
   if (!amount || !walletAddress) {
     res.status(400).json({ message: 'Amount and wallet address are required' });
