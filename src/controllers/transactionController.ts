@@ -166,7 +166,14 @@ export const claimCommission = async (req: AuthRequest, res: Response): Promise<
 
       res.status(200).json(transaction);
     } else if (type === 'referral') {
-      const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
+      const teamMembers = await User.find({
+        $or: [
+          { referredBy: user.referralCode },
+          { referredBy: { $regex: new RegExp(`^${user.referralCode}$`, 'i') } },
+          { referredBy: user._id.toString() },
+          { referredByUserId: user._id.toString() },
+        ],
+      }).select('totalDeposited');
       const commissionAmount = teamMembers.reduce((total, member: any) => {
         return total + ((member.totalDeposited || 0) * (0.5 / 100));
       }, 0);
