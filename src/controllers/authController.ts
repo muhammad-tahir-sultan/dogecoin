@@ -83,7 +83,10 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     
     let referredBy: string | undefined = undefined;
     if (referralCode) {
-      const referrer = await User.findOne({ referralCode });
+      const trimmedCode = referralCode.toString().trim();
+      const referrer = await User.findOne({
+        referralCode: { $regex: new RegExp(`^${trimmedCode}$`, 'i') },
+      });
       if (referrer) {
         referredBy = referrer.referralCode;
       }
