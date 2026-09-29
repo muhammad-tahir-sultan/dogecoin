@@ -42,7 +42,14 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
 
     const activeLevelRecord = await UserLevel.findOne({ user: user._id, status: 'active' }).populate('level');
     const allLevels = await InvestmentLevel.find().sort({ levelNumber: 1 });
-    const teamMembers = await User.find({ referredBy: user.referralCode }).select('totalDeposited');
+    const teamMembers = await User.find({
+      $or: [
+        { referredBy: user.referralCode },
+        { referredBy: { $regex: new RegExp(`^${user.referralCode}$`, 'i') } },
+        { referredBy: user._id.toString() },
+        { referredByUserId: user._id.toString() },
+      ],
+    }).select('totalDeposited');
     const availableTeamCommission = teamMembers.reduce((total, member: any) => {
       return total + ((member.totalDeposited || 0) * (0.5 / 100));
     }, 0);
@@ -104,7 +111,14 @@ export const getTeamStats = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     // Find all users who were referred by this user
-    const teamMembers = await User.find({ referredBy: user.referralCode }).select('-passwordHash');
+    const teamMembers = await User.find({
+      $or: [
+        { referredBy: user.referralCode },
+        { referredBy: { $regex: new RegExp(`^${user.referralCode}$`, 'i') } },
+        { referredBy: user._id.toString() },
+        { referredByUserId: user._id.toString() },
+      ],
+    }).select('-passwordHash');
 
     let teamDeposits = 0;
     let teamWithdrawals = 0;

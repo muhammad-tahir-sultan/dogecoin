@@ -55,7 +55,5 @@ if (process.env.NODE_ENV !== 'production') {
         console.log(`Server running on port ${PORT}`);
     });
 }
-// Export for both ESM and CommonJS / Vercel Serverless Function compatibility
-module.exports = app;
-module.exports.default = app;
+// Export app
 exports.default = app;

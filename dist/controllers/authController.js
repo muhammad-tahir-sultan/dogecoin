@@ -69,7 +69,10 @@ const signup = async (req, res) => {
         const passwordHash = await bcryptjs_1.default.hash(password, salt);
         let referredBy = undefined;
         if (referralCode) {
-            const referrer = await User_1.default.findOne({ referralCode });
+            const trimmedCode = referralCode.toString().trim();
+            const referrer = await User_1.default.findOne({
+                referralCode: { $regex: new RegExp(`^${trimmedCode}$`, 'i') },
+            });
             if (referrer) {
                 referredBy = referrer.referralCode;
             }
